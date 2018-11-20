@@ -146,7 +146,7 @@ def test_model():
     
     ax.set_title('Damm sensitivity')
     plt.show()
-    # plt.savefig('omega.png')
+    plt.savefig('damm_sensitivities.png')
     
     
 #def carbon_concentration(p, Dliq, St, W):
