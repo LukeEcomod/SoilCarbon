@@ -5,8 +5,9 @@ Samuli Launiainen Luke 23.9.18 --
 
 Models
 
-DAMM (Dual Arhenius Michaelis-Menten kinetics; Davidson et al. 2012. Global Change Biol.)
-ICBM (Introductory Carbon Balance Model; Andren & Kätterer, 1997. Ecol. Appl. 7, 1226-1236)
+* DAMM (Dual Arhenius Michaelis-Menten kinetics; Davidson et al. 2012. Global Change Biol.)
+
+* ICBM (Introductory Carbon Balance Model; Andren & Kätterer, 1997. Ecol. Appl. 7, 1226-1236)
 
 
 References
