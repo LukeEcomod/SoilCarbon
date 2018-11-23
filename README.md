@@ -1,6 +1,5 @@
 # SoilCarbon
-Soil Carbon models in Python
-
+Soil C models in Python.
 Samuli Launiainen Luke 23.9.18 --
 
 Models
@@ -9,6 +8,7 @@ Models
 
 * ICBM (Introductory Carbon Balance Model; Andren & Kätterer, 1997. Ecol. Appl. 7, 1226-1236)
 
+* Millennium (Abramoff et al. 2017 Biogeochemistry). Note that there is something fishy in LMWC --> MAOM transfer; the Langmuir -absorption isotherm units and coefficients.
 
 References
 
