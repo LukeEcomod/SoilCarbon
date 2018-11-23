@@ -41,6 +41,8 @@ class Millennial():
             x[2] = B (microbial biomass)
             x[3] = A (aggregate C)
             x[4] = MAOM (mineral associated C)
+        Note:
+            Qmax and Langmuir adsorption equation is likely wrong!
         """
         
         Qmax = soilp['bd']*10**(p['c'][0] * np.log(soilp['clay'] + p['c'][1]))
@@ -50,8 +52,8 @@ class Millennial():
         self.para = p
         self.soilpara = soilp
         
-        #self.temperature_response = fT_century
-        #self.moisture_response = fW_century
+        self.temperature_response = fT_century
+        self.moisture_response = fW_century
         
         # carbon pools
         self.Cpools = C0
@@ -95,10 +97,10 @@ class Millennial():
         p = millennial_param(**p)
 
         # environmental modifiers
-        #fT = self.temperature_response(T)
-        #fW = self.moisture_response(W / self.soilpara['fc'])
+        fT = self.temperature_response(T)
+        fW = self.moisture_response(W / self.soilpara['fc'])
         
-        fT = 1.0; fW=1.0
+        # fT = 1.0; fW=1.0
         
         # compute fluxes
         F = fluxes(x, p, env_f=fT*fW) 
@@ -113,7 +115,8 @@ class Millennial():
         x[4] += dt * (F['Flm'] + F['Fbm'] + (1.0 - p.pa)*F['Fa'] - F['Fma'])
         
         self.Cpools = x.copy()
-        # delta C = F_in - maintenance respiration since growth respiration is bypass
+        
+        # delta C = F_in - Fmr since growth respiration Fgr is bypass
         mbe = sum(self.Cpools) - sum(x0)  - sum(F_in) + dt*F['Fmr']
         
         return F, mbe
@@ -144,17 +147,21 @@ def fluxes(x, p, dt=1.0, env_f=1.0):
             Fmr - microbial maintenance respiration
             Fgr - microbial growth respiration
     """
-       
+    
     """ fluxes (g C m-2 d-1). Constraints as in Fortran-code """
-    Fpl = env_f * p.V_pl * (x[0] / (p.K_pl + x[0])) * (x[2] / (p.K_pl + x[2])) 
+    Fpl = env_f * p.V_pl * (x[0] / (p.K_pl + x[0])) * (x[2] / (p.K_pe + x[2])) 
     Fpl = np.minimum(dt*Fpl, 0.9*x[0]) / dt # constrains flux to be <= 0.9*poolsize/dt
     
     Fpa = env_f * p.V_pa * (x[0] / (p.K_pa + x[0])) * (1.0 - x[3] / p.A_max)
     Fpa = np.minimum(dt*Fpa, 0.9*x[0]) / dt
     
     Fa = env_f * p.k_b * x[3]
+
     
-    Flb = env_f * p.V_lm * x[1] * (x[0] / (p.K_lb + x[0])) * p.CUE
+    # Note! additional M-M -term from fortran code aa:    
+    #aa = (x[1] / (20.0 + x[1]))
+    aa = 1.0
+    Flb = env_f * p.V_lm * x[1] * aa * p.CUE
     Flb = np.minimum(dt*Flb, 0.9*x[1]) / dt
     
     Fgr = env_f * Flb *(1.0 - p.CUE) / p.CUE
@@ -162,6 +169,7 @@ def fluxes(x, p, dt=1.0, env_f=1.0):
     Fmr = env_f * p.k_m * x[2]
 
     Fbm = env_f * p.k_mm * x[2]
+    Fbm = np.minimum(dt*Fbm, 0.9*x[2]) / dt
     
     """ leaching: parameterize p.k_l through net water flow? """
     Fl = env_f * p.k_l * x[1]
@@ -221,21 +229,30 @@ def fW_century(rwc):
 """ *** testing scripts *** """
 
 def test_millennial():
-    
+    """
+    tests millennial using forcing data from Abramoff et al. 2017.
+    Global average soil temperature, vol moisture and example litter input.
+    Loop data over M years
+    """
+    # import parameters
     from millennial_parameters import param
     
-    soilp = {'clay': 40.0, 'bd': 1350.0, 'poros': 0.5, 'fc': 0.3}
-    C0 = 1.0*np.ones(5) # g C m-2
-    F_litter = np.array([114.5, 58.5]) # litter input to POM and LMWC pools kg C m-2 d-a
-    F_litter = F_litter
+    # load forcing file
+    forc = np.loadtxt(r'c:\repositories\soilcarbon\data\millennial_globalaverage_data.txt', skiprows=1)
+    T = forc[:,0] # degC
+    W = forc[:,1] # m3m-3
+    F_litter = forc[:,2] # g C d-1  
+
+    M = 200 # yrs
+    N = 365 * M # days
     
-    T = 11.2 # degC
-    W = 1.0 # moisture
+    soilp = {'clay': 40.0, 'bd': 1350.0, 'poros': 0.5, 'fc': 0.3}
+    C0 = 1.0 * np.ones(5) # g C m-2 initial pools
     
     # create instance
     model = Millennial(param, soilp, C0, results=True)
     
-    N = 365*300
+    # create holders for daily data
     res = np.zeros((5, N))*np.NaN
     F = {'Fpl': np.zeros(N), 'Fpa': np.zeros(N), 'Fa': np.zeros(N), 'Flb': np.zeros(N),
            'Fbm': np.zeros(N), 'Fl': np.zeros(N), 'Fma': np.zeros(N), 'Flm': np.zeros(N),
@@ -243,27 +260,29 @@ def test_millennial():
     
     mbe = np.zeros(N)* np.NaN
     
-    for k in range(N):
-        F_in = F_litter / 365.0
-#        if np.remainder(k, 365) == 0:
-#            F_in = F_litter
-#        else:
-#            F_in = [0.0, 0.0]
-        flx, err = model.decompose(T, W, F_in, F_adv=0.0)
-        res[:,k] = model.Cpools
-        for m in F.keys():
-            F[m][k] = flx[m] 
-        #F['Fgr'][k] = flx['Fgr']
-        #F['Fmr'][k] = flx['Fmr']
-        mbe[k] = err
+    j = 0
+    for yr in range(M):
+        print('Run year: ', yr)
+        for k in range(365):   
+            F_in = [0.66*F_litter[k], 0.34*F_litter[k]]
+            flx, err = model.decompose(T[k], W[k], F_in, F_adv=0.0)
+            res[:,j] = model.Cpools
+            for m in F.keys():
+                F[m][j] = flx[m] 
+            #F['Fgr'][k] = flx['Fgr']
+            #F['Fmr'][k] = flx['Fmr']
+            mbe[j] = err
+            j +=1
     
+    # plot figs
     tt = np.arange(N) / 365.0
     poolname = ['POM', 'LMWC', 'MIC', 'AGG', 'MAOM']
+    
     plt.figure(200)
     for n in range(5):
         plt.plot(tt, res[n,:]/1000, label=poolname[n])
     plt.legend()
-    plt.ylabel('g C m-2'); plt.xlabel('yr')
+    plt.ylabel('kg C m-2'); plt.xlabel('yr')
     plt.savefig('millennial_pools.png')
 
     plt.figure(300)
@@ -273,13 +292,10 @@ def test_millennial():
     for m in ['Fpl','Fpa','Flb']:
         plt.plot(tt, F[m], ':', label=m)
         plt.legend()    
-    
-    
-    plt.figure(100)
-    plt.plot(tt, mbe, label='mbe')
-    plt.plot(tt, F['Fgr'] + F['Fmr'], label='Rh')
-    plt.legend()
-    
+    for m in ['Fgr','Fmr']:
+        plt.plot(tt, F[m], '-', label=m)
+        plt.legend()      
+    plt.ylabel('Flux g C d-1')
     
     return model, res, F
     

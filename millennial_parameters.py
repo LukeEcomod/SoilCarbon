@@ -34,6 +34,6 @@ param = {
         'V_ma': 7e-2,   # max rate of M --> A (g C m-2 d-1)
         'K_ma': 200.0,  # half-sat. const M --> A (g Cm-2)
         'k_mm': 2.5e-2, # microbial biomass adsorption rate (-)
-        'k_m': 3.6e-2,  # microbial turn-over rate (d-1)
+        'k_m': 3.6e-2,  # microbial turn-over rate (d-1). From F90: k_m=5.4e-3 (3.6e-2*0.15) 
         }
 
