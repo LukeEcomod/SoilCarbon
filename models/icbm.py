@@ -151,5 +151,7 @@ def test():
     plt.xlabel('t (yr)')
     plt.ylabel('C pools (kgC m-3)')
     plt.title('+N+Straw')
-    plt.savefig('ICBM_test.png', dpi=300)
+    
+    plt.show()
+    #plt.savefig('ICBM_test.png', dpi=300)
     
